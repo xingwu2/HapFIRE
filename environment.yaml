@@ -43,7 +43,7 @@ dependencies:
   - bwidget=1.10.1=ha770c72_1
   - bzip2=1.0.8=h4bc722e_7
   - c-ares=1.34.5=hb9d3cd8_0
-  - ca-certificates=2025.7.14=hbd8a1cb_0
+  - ca-certificates=2026.1.4=hbd8a1cb_0
   - cairo=1.16.0=hbbf8b49_1016
   - clarabel=0.11.1=py313ha1bf503_0
   - curl=8.14.1=h332b0f4_0
@@ -68,6 +68,7 @@ dependencies:
   - gsl=2.7=he838d99_0
   - gxx_impl_linux-64=15.1.0=h6a1bac1_4
   - harfbuzz=7.3.0=hdb3a94d_0
+  - htslib=1.3.1=h60f3df9_8
   - icu=72.1=hcb278e6_0
   - joblib=1.5.1=pyhd8ed1ab_0
   - kernel-headers_linux-64=5.14.0=he073ed8_2
@@ -124,7 +125,7 @@ dependencies:
   - ncurses=6.5=h2d0b736_3
   - networkx=3.5=pyhe01879c_0
   - numpy=2.3.2=py313hf6604e3_0
-  - openssl=3.5.1=h7b32b05_0
+  - openssl=3.6.1=h35e630c_1
   - osqp=0.6.7.post3=py313ha87cce1_1
   - pandas=2.3.1=py313h08cd8bf_0
   - pango=1.50.14=heaa33ce_1
@@ -217,6 +218,7 @@ dependencies:
   - sed=4.9=h6688a6e_0
   - setuptools=80.9.0=pyhff2d567_0
   - six=1.17.0=pyhe01879c_1
+  - sysroot_linux-64=2.34=he3f20f0_2
   - threadpoolctl=3.6.0=pyhecae5ae_0
   - tk=8.6.13=noxft_hd72426e_102
   - tktable=2.10=h8d826fa_7
@@ -238,3 +240,17 @@ dependencies:
   - xz-tools=5.8.1=hb9d3cd8_2
   - zlib=1.3.1=hb9d3cd8_2
   - zstd=1.5.7=hb8e6e7a_2
+  - pip:
+      - click==8.3.1
+      - coloredlogs==15.0.1
+      - contourpy==1.3.3
+      - cycler==0.12.1
+      - cyvcf2==0.31.4
+      - fonttools==4.61.1
+      - humanfriendly==10.0
+      - kiwisolver==1.4.9
+      - matplotlib==3.10.8
+      - packaging==26.0
+      - pillow==12.1.1
+      - pyclustering==0.10.1.2
+      - pyparsing==3.3.2

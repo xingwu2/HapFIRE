@@ -15,6 +15,10 @@ from scipy.cluster.hierarchy import linkage
 from scipy.cluster.hierarchy import fcluster
 import community as community_louvain
 import networkx as nx
+import math
+
+
+import utility_functions as UF
 
 def find_ld(i,snps,cutoff,window_size):  ###find the correlation of every SNP to a window
 	n_inds,n_snps = snps.shape
@@ -104,7 +108,7 @@ def CompleteLDPartition(standardized_genotype_matrix,cutoff,window_size):
 
 	return(boundary,alone_SNPs_index)
 
-def BigLD_partition(DIR,IndepLD_breakpoints_index,geno_matrix,variant_names,variant_positions,CLQcut,prefix):
+def BigLD_partition(DIR,IndepLD_breakpoints_index,geno_matrix,variant_names,variant_positions,CLQcut,prefix,maf):
 	fine_breakpoints_ch = []
 
 	#generate geno and SNPinfo for BigLD
@@ -121,7 +125,7 @@ def BigLD_partition(DIR,IndepLD_breakpoints_index,geno_matrix,variant_names,vari
 			INFO.write(str(1)+"\t"+str(tmp_names[j])+"\t"+str(tmp_positions[j])+"\n")
 		INFO.close()
 
-		BigLD_command = "Rscript "+DIR+"/BigLD.R -g "+prefix+"_"+str(I)+"_geno_matrix"+".btmp"+ " -s "+prefix+"_"+str(I)+"_snpINFO"+".btmp" + " -c " + str(CLQcut) + " -o " + prefix+"_"+str(I)
+		BigLD_command = "Rscript "+DIR+"/BigLD.R -g "+prefix+"_"+str(I)+"_geno_matrix"+".btmp"+ " -s "+prefix+"_"+str(I)+"_snpINFO"+".btmp" + " -c " + str(CLQcut) + " -m " + str(maf) + " -o " + prefix+"_"+str(I)
 		try:
 			blocks = []
 			subprocess.check_call(BigLD_command,shell=True)
@@ -131,8 +135,9 @@ def BigLD_partition(DIR,IndepLD_breakpoints_index,geno_matrix,variant_names,vari
 				for line in INPUT:
 					items = line.split("\t")
 					blocks.append([variant_positions.index(int(items[5])),variant_positions.index(int(items[6]))])
-			print("hellow",right,blocks)
 			blocks[-1][1] = right
+
+			blocks = UF.keep_largest_overlaps(blocks)
 
 			fine_breakpoints_ch.extend(blocks)
 
@@ -398,6 +403,7 @@ def ecotype_frequency_estimation_selected(gw_independent_breakpoints,independent
 		problem = cp.Problem(cp.Minimize(cp.norm(diff)),constraints)
 		problem.solve(solver = 'SCS',verbose=False)
 		ecotype_frequency[i,:] = h.value
+		print(h.value)
 		length.append(dedup_haplotypes.shape[0])
 		# if dedup_haplotypes.shape[0] < hap1.shape[0] * 0.9:
 		# 	weights.append(0)
@@ -450,56 +456,207 @@ def ecotype_frequency_estimation_lasso(gw_independent_breakpoints,independent_bl
 	return(ecotype_frequency_avg)
 
 
-def Spectral_clustering(np_array):
-	r,c =np_array.shape
-	k = max(int(r/20),5)
+# def Spectral_clustering(np_array):
+# 	r,c =np_array.shape
+# 	k = max(int(r/20),5)
 
-	dists = squareform(pdist(np_array))
-	knn_distances = np.sort(dists, axis=0)[k]
-	knn_distances = knn_distances[np.newaxis].T
-	local_scale = knn_distances.dot(knn_distances.T)
-	affinity_matrix = - dists * dists / local_scale
-	affinity_matrix[np.where(np.isnan(affinity_matrix))] = 0.0
-	affinity_matrix = np.exp(affinity_matrix)
-	np.fill_diagonal(affinity_matrix, 0)
+# 	dists = squareform(pdist(np_array))
+# 	knn_distances = np.sort(dists, axis=0)[k]
+# 	knn_distances = knn_distances[np.newaxis].T
+# 	local_scale = knn_distances.dot(knn_distances.T)
+# 	affinity_matrix = - dists * dists / local_scale
+# 	affinity_matrix[np.where(np.isnan(affinity_matrix))] = 0.0
+# 	affinity_matrix = np.exp(affinity_matrix)
+# 	np.fill_diagonal(affinity_matrix, 0)
 
-	L = csgraph.laplacian(affinity_matrix,normed = True)
+# 	L = csgraph.laplacian(affinity_matrix,normed = True)
 
-	eig_val, eig_vec = np.linalg.eig(L)
-	eig_val = np.real(eig_val)
-	eig_vec = np.real(eig_vec)
+# 	eig_val, eig_vec = np.linalg.eig(L)
+# 	eig_val = np.real(eig_val)
+# 	eig_vec = np.real(eig_vec)
 	
-	eig_vec = eig_vec[:,np.argsort(eig_val)]
-	eig_val = eig_val[np.argsort(eig_val)]
+# 	eig_vec = eig_vec[:,np.argsort(eig_val)]
+# 	eig_val = eig_val[np.argsort(eig_val)]
 
 
-	if sum(np.iscomplex(eig_val)) > 0:
-		print("Spectral Clustering failed. Clusters are assigned by affinity_propagation.")
-		print(np_array.shape)
-		labels = affinity_propagation(np_array)
-		if labels[0] == -1 or max(labels) == 0:
-			labels = np.arange(np_array.shape[0])
-			print("Affinity propagation failed")
+# 	if sum(np.iscomplex(eig_val)) > 0:
+# 		print("Spectral Clustering failed. Clusters are assigned by affinity_propagation.")
+# 		print(np_array.shape)
+# 		labels = affinity_propagation(np_array)
+# 		if labels[0] == -1 or max(labels) == 0:
+# 			labels = np.arange(np_array.shape[0])
+# 			print("Affinity propagation failed")
 		
+# 	else:
+# 		index_largest_gap = np.argsort(np.diff(eig_val))[::-1][0]
+# 		#print(index_largest_gap)
+# 		n_clusters = index_largest_gap + 2
+# 		V = eig_vec[:,:n_clusters]
+# 		Z = linkage(V, 'ward')
+# 		labels = fcluster(Z, n_clusters, criterion='maxclust') - 1
+# 	return(labels)
+
+def KNN_Spectral(np_array,eps=1e-12, k_max_eigs=30):
+
+	r,c =np_array.shape
+	k = max(10, int(2*math.log(r)))
+	k = min(k, r - 1)
+
+	connectivity = kneighbors_graph(X=np_array, n_neighbors=k, mode='connectivity',metric="hamming",include_self=False)
+
+	A = (1/2)*(connectivity + connectivity.T)
+	
+	L = csgraph.laplacian(A,normed = True)
+
+	L = L.toarray()
+
+	evals, evecs = np.linalg.eigh(L)
+
+	# Use eigengap on the smallest part of the spectrum
+	m = min(k_max_eigs, r - 1)
+	small = evals[:m]
+	gaps = np.diff(small)
+
+	# Ignore the trivial first eigenvalue near 0; search gaps starting from index 1
+	if len(gaps) < 2:
+		n_clusters = 1
 	else:
-		index_largest_gap = np.argsort(np.diff(eig_val))[::-1][0]
-		#print(index_largest_gap)
-		n_clusters = index_largest_gap + 2
-		V = eig_vec[:,:n_clusters]
-		Z = linkage(V, 'ward')
-		labels = fcluster(Z, n_clusters, criterion='maxclust') - 1
+		j = 1 + np.argmax(gaps[1:])  # j is the split point
+		n_clusters = j + 1
+
+	# Spectral embedding: take first n_clusters eigenvectors
+	V = evecs[:, :n_clusters]
+
+	# Row-normalize (common in Ng-Jordan-Weiss style)
+	V_norm = V / (np.linalg.norm(V, axis=1, keepdims=True) + eps)
+
+	# Cluster embedding (Ward on Euclidean in embedding space is fine)
+	Z = linkage(V_norm, method="ward")
+	labels = fcluster(Z, t=n_clusters, criterion="maxclust") - 1
+
+	#print(max(labels))
+
 	return(labels)
 
+def local_scale_modularity(np_array,eps=1e-12):
+	
+	r,c =np_array.shape
+	k = max(10, int(2*math.log(r)))
+	k_knn = min(k, r - 1)
+	k_sigma = min(k, r - 2)
+
+
+	D = squareform(pdist(np_array,metric="hamming"))
+
+	# sigma_i = distance to k-th neighbor (excluding self at position 0)
+	D_sorted = np.sort(D, axis=1)
+	sigma = D_sorted[:, k_sigma + 1]  # +1 because D_sorted[:,0] is self-distance 0
+	sigma = np.maximum(sigma, eps)
+
+	# Local scaling: exp( -d^2 / (sigma_i * sigma_j) )
+	S = np.outer(sigma, sigma)
+	S = np.maximum(S, eps)
+
+	W = np.exp(-(D * D) / S)
+	np.fill_diagonal(W, 0.0)
+
+
+	connectivity = kneighbors_graph(X=np_array, n_neighbors=k_knn, mode='connectivity',metric="hamming",include_self=False)
+	connectivity = 0.5 * (connectivity + connectivity.T) ## make connectivity symmetric
+
+	connectivity_matrix = connectivity.toarray()
+	weighted_connectivity = np.multiply(W,connectivity_matrix)
+	G = nx.from_numpy_array(weighted_connectivity)
+	## this is a more stable function that the results can be reproduced due to the seed setting
+	louvain_partition = nx.community.louvain_communities(G,seed=0)
+	labels = np.empty(r, dtype=int)
+	for cid, nodes in enumerate(louvain_partition):
+		labels[list(nodes)] = cid
+
+	return(labels)
+
+def local_scale_Spectral(np_array,eps=1e-12,k_max_eigs=30):
+
+	r,c =np_array.shape
+	k = max(10, int(2*math.log(r)))
+	k = min(k, r - 2)
+
+	D = squareform(pdist(np_array,metric="hamming"))
+
+	# sigma_i = distance to k-th neighbor (excluding self at position 0)
+	D_sorted = np.sort(D, axis=1)
+	sigma = D_sorted[:, k + 1]  # +1 because D_sorted[:,0] is self-distance 0
+	sigma = np.maximum(sigma, eps)
+
+	# Local scaling: exp( -d^2 / (sigma_i * sigma_j) )
+	S = np.outer(sigma, sigma)
+	S = np.maximum(S, eps)
+
+	W = np.exp(-(D * D) / S)
+	np.fill_diagonal(W, 0.0)
+	L = csgraph.laplacian(W, normed=True)
+	evals, evecs = np.linalg.eigh(L)
+
+	# Use eigengap on the smallest part of the spectrum
+	m = min(k_max_eigs, r - 1)
+	small = evals[:m]
+	gaps = np.diff(small)
+
+	# Ignore the trivial first eigenvalue near 0; search gaps starting from index 1
+	if len(gaps) < 2:
+		n_clusters = 1
+	else:
+		j = 1 + np.argmax(gaps[1:])  # j is the split point
+		n_clusters = j + 1
+
+	# Spectral embedding: take first n_clusters eigenvectors
+	V = evecs[:, :n_clusters]
+
+	# Row-normalize (common in Ng-Jordan-Weiss style)
+	V_norm = V / (np.linalg.norm(V, axis=1, keepdims=True) + eps)
+
+	# Cluster embedding (Ward on Euclidean in embedding space is fine)
+	Z = linkage(V_norm, method="ward")
+	labels = fcluster(Z, t=n_clusters, criterion="maxclust") - 1
+
+	#print(max(labels))
+
+
+	return(labels)
+
+def xmeans_clustering(array):
+	# Prepare initial centers - amount of initial centers defines amount of clusters from which X-Means will
+	# start analysis.
+	amount_initial_centers = 2
+	initial_centers = kmeans_plusplus_initializer(array, amount_initial_centers).initialize()
+	# Create instance of X-Means algorithm. The algorithm will start analysis from 2 clusters, the maximum
+	# number of clusters that can be allocated is 30.
+	xmeans_instance = xmeans(array, initial_centers, 30)
+	xmeans_instance.process()
+	# Extract clustering results: clusters and their centers
+	clusters_ = xmeans_instance.get_clusters()
+	clusters = [0]*len(array)
+	for i in range(len(clusters_)):
+		for j in clusters_[i]:
+			clusters[j] = i
+	#print(clusters)
+	return(clusters)
 
 def haplotypes_clustering(np_array,algorithm):
-	if algorithm == "spectral_clustering":
-		clusters = Spectral_clustering(np_array)
+	if algorithm == "KNN":
+		clusters = KNN_Spectral(np_array)
+	elif algorithm == "xmeans":
+		clusters = xmeans_clustering(np_array)	
+	elif algorithm == "local":
+		clusters = local_scale_Spectral(np_array)
+	elif algorithm == "modularity":
+		clusters = local_scale_modularity(np_array)
 	else:
 		sys.exit("Unknown haplotype clustering algorithm")
 	return(clusters)
 
 
-def fine_haplotype_frequency_calculation(block_partitions,gw_independent_breakpoints,independent_block_haplotype_frequency,gw_breakpoints,hap_matrix_d1,hap_matrix_d2,variant_names,variant_positions,snp_frequency,ch):	
+def fine_haplotype_frequency_calculation(block_partitions,gw_independent_breakpoints,independent_block_haplotype_frequency,gw_breakpoints,hap_matrix_d1,hap_matrix_d2,variant_names,variant_positions,snp_frequency,ch,algorithm):	
 	unique_haplotype_frequency = []
 	haplotype_cluster_frequency = []
 	vcf_haplotype_frequency = []
@@ -578,7 +735,7 @@ def fine_haplotype_frequency_calculation(block_partitions,gw_independent_breakpo
 				# cluster unique haplotypes into haplotype clusters and then calculate cluster frequencies
 
 				if dedup_haplotypes.shape[0] > 10:
-					clusters = haplotypes_clustering(dedup_haplotypes,algorithm = "spectral_clustering")
+					clusters = haplotypes_clustering(dedup_haplotypes,algorithm)
 				else:
 					clusters = np.arange(dedup_haplotypes.shape[0])
 				haplotype_cluster_names_ = [ch+"@"+str(variant_positions[left])+"-"+str(variant_positions[right])+'_'+"haplotype_cluster"+str(l) for l in range(max(clusters)+1)]
