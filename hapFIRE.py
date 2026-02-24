@@ -24,6 +24,11 @@ args = UF.parse_arguments()
 DIR = os.path.realpath(os.path.dirname(__file__))
 
 
+## Check if .bai and .fai files exist for the bam and reference files
+
+UF.check_files(args.bam,args.reference)
+
+
 """
 Import VCF files, block partition and SNP table generation
 """

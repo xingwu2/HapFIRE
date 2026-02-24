@@ -5,6 +5,8 @@ import scipy
 import networkx as nx
 import argparse
 import math
+import os
+import sys
 
 from pyclustering.cluster.xmeans import xmeans
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
@@ -101,5 +103,38 @@ def keep_largest_overlaps(blocks):
 
 	sorted_results = sorted(result, key=lambda x: x[0])
 	return(sorted_results)
+
+
+def check_files(bam,reference):
+	bam_file = bam
+	bam_index = bam_file + ".bai"
+
+	# Check BAM file first
+	if not os.path.isfile(bam_file):
+		sys.exit("Error: The BAM file is missing. Please check the path of the BAM file.")
+
+	# Check BAI index file
+	if not os.path.isfile(bam_index):
+		sys.exit(
+			"Error: The .bai index file for the BAM file is missing. "
+			"Please make sure the index file is in the same directory "
+			"and has the same name with .bai extension."
+		)
+	reference_file = reference
+	reference_index = reference_file + ".fai"
+
+	# Check reference file 
+	if not os.path.isfile(reference_file):
+		sys.exit("Error: The reference.fa file is missing. Please check the path of the reference file.")
+
+	# Check reference index file
+	if not os.path.isfile(reference_index):
+		sys.exit(
+			"Error: The .fai index file for the reference file is missing. "
+			"Please make sure the index file is in the same directory "
+			"and has the same name with .fai extension."
+		)
+	
+	return(True)
 
 
